@@ -1,0 +1,154 @@
+---
+title: |  
+ ![](C:/Users/admin/Documents/Krysler Files/R files/Problem Set 1/logo.jpg){width=1in}
+subtitle: "Logistic Regression"
+author: "Group 6: Gimena, K.F., Dela Torre, F.D., Chua, F.C."
+date: "2022-11-25"
+output: 
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include= FALSE}
+setwd('C:/Users/admin/Documents/Krysler Files/R files/Logistic Regression')
+library(datasets)
+library(ggplot2)
+library(tidyverse)
+library(gmodels)
+library(car)
+```
+
+
+## Setting up Data Frame:
+```{r df, comment= NULL}
+cancer_data = read.csv('cancer.csv')[, -1]
+head(cancer_data, 10)
+```
+
+## Logistic Regression Model:
+```{r model, comment= NULL}
+lg_model <- glm(cancer ~ ., family = "binomial", data = cancer_data)
+summary(lg_model)
+```
+
+***
+
+The predictor variable age, gender, and fruit are significant since are lower than p-value = 0.05.
+
+***
+
+```{r coefficients, comment= NULL}
+lg_model$coefficients
+```
+
+Interpretations:
+
+  * A one-unit increase in the age is associated with an increase in log odds of cancer by __0.1175121__ units assuming that gender and fruit are fixed.
+  
+  * If a person is either male(1) or female(0), it is associated with an increase in log odds of cancer by __2.5736980__ units assuming that age and fruit are fixed.
+
+  * A one-unit increase in fruit intake is associated with a decrease in log odds of cancer by __-2.0468690__ units assuming that age and gender are fixed.
+
+\newpage
+
+## Prediction:
+
+__Predict the probability of any given (age, gender, bmi, smoking, exercise, fruit, veg):__
+```{r p_prob, comment= NULL}
+newdata <- data.frame(age= c(58, 42), gender= c(0, 1), bmi= c(19.29561, 25.256798),
+                      smoking= c(0, 0), exercise= c(0, 0), fruit= c(2, 1), veg= c(4, 6))
+
+(prediction <- predict(lg_model, newdata, type = "response"))
+```
+
+__Predict the classification of the response variable _(cancer)_ using the model with the p > 0.5 as cancer-prone.__
+```{r p_pred, comment= NULL}
+prob <- predict(lg_model, type="response")
+
+Predicted_data <- ifelse(prob < 0.5, "Not Cancerous", "Cancerous")
+
+Actual_data <- factor(cancer_data$cancer[-66], labels= c("Not Cancerous", "Cancerous"))
+
+CrossTable(Actual_data, Predicted_data, prop.r= TRUE, prop.c= TRUE,
+           prop.t= FALSE, prop.chisq= FALSE)
+```
+
+__Graph of the Model__
+```{r p_plot, comment= NULL}
+c_data <- cancer_data$cancer[-66]
+df <- data.frame(c_data, prob)
+
+ggplot(df, aes(prob, c_data)) +
+  geom_point(alpha= 0.5, color = "red") +
+  stat_smooth(method= "glm", color= "steelblue", se= T, method.args = list(family=binomial))+
+  ggtitle(label = "Logistic Model Plot", subtitle = waiver())+
+  xlab("Predicted Value")+
+  ylab("Probability of Cancer")
+```
+
+\newpage
+
+## Linearity Assumption:
+
+
+1. Remove qualitative variables from the original data frame and bind the logit values to the data if there are any.
+
+__Select only numeric predictors__
+```{r numeric, results= 'hide'}
+cancer_data[, c(2, 8)] <- list(NULL) 
+cancer_data %>% select_if(is.numeric)
+predictors <- colnames(cancer_data)
+```
+
+
+__Bind the logit and tidying the data for plot__
+```{r logit, results= 'hide'}
+cancer_data <- cancer_data[-66, ] %>%
+  mutate(logit = log(prob/(1-prob))) %>%
+  gather(key = "predictors", value = "predictor.value", -logit)
+```
+
+
+2. Create the scatter plots:
+```{r logit_plot, comment= NULL}
+ggplot(cancer_data, aes(logit, predictor.value))+
+  geom_point(size = 0.5, alpha = 0.5, col = "red") +
+  geom_smooth(method = "loess") +
+  theme_bw() +
+  facet_wrap(~predictors, scales = "free_y")
+```
+
+\newpage
+
+## Influential Values:
+
+
+```{r cooks.d, comment= NULL}
+plot(lg_model, which = 4, id.n = 5, col = "steelblue")
+```
+
+
+Interpretations:
+
+  * Observed Value Points 6, 21, 26, 40, and 47 are considered as influential values.
+
+
+## Multicollinearity:
+
+
+```{r vif, comment= NULL}
+vif(lg_model)
+```
+
+***
+
+In our data, no predictor exceeded the value of 5 or 10, therefore, there is no multicollinearity problem.
+
+***
+
+\begin{center}
+END OF PROJECT
+\end{center}
